@@ -65,6 +65,7 @@ public class WidgetAdapter extends RecyclerView.Adapter<WidgetAdapter.ViewHolder
             iconImage = itemView.findViewById(R.id.widgetIcon);
             nameText = itemView.findViewById(R.id.widgetName);
             packageText = itemView.findViewById(R.id.widgetPackage);
+            //test
         }
     }
 }
