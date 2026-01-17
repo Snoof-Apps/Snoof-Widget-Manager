@@ -1,7 +1,9 @@
 package snoof.widget.manager;
 
+import android.content.Intent;
 import android.content.pm.ApplicationInfo;
 import android.content.pm.PackageManager;
+import android.content.pm.ResolveInfo;
 import android.graphics.drawable.Drawable;
 import android.os.Bundle;
 import android.util.Log;
@@ -32,21 +34,17 @@ public class MainActivity extends AppCompatActivity {
         EdgeToEdge.enable(this);
         setContentView(R.layout.activity_main);
 
-        // Handle edge-to-edge padding
         ViewCompat.setOnApplyWindowInsetsListener(findViewById(R.id.main), (v, insets) -> {
             Insets systemBars = insets.getInsets(WindowInsetsCompat.Type.systemBars());
             v.setPadding(systemBars.left, systemBars.top, systemBars.right, systemBars.bottom);
             return insets;
         });
 
-        // Initialize UI components
         recyclerView = findViewById(R.id.recyclerView);
         emptyText = findViewById(R.id.emptyText);
 
-        // Set up RecyclerView
         recyclerView.setLayoutManager(new LinearLayoutManager(this));
 
-        // Initialize the adapter with the empty list first
         adapter = new WidgetAdapter(discoveredWidgets);
         recyclerView.setAdapter(adapter);
     }
@@ -54,7 +52,7 @@ public class MainActivity extends AppCompatActivity {
     @Override
     protected void onResume() {
         super.onResume();
-        // Refresh the list every time the user sees this activity
+        // Refresh the list using the signature intent scan
         scanForWidgets();
     }
 
@@ -62,29 +60,32 @@ public class MainActivity extends AppCompatActivity {
         discoveredWidgets.clear();
         PackageManager pm = getPackageManager();
 
-        // Query all installed applications
-        List<ApplicationInfo> packages = pm.getInstalledApplications(PackageManager.GET_META_DATA);
+        // We look for activities that respond to our "Secret Handshake" action
+        Intent queryIntent = new Intent("snoof.widget.IDENTIFIER");
 
-        for (ApplicationInfo packageInfo : packages) {
-            // Filter by prefix and exclude the manager itself
-            if (packageInfo.packageName.startsWith("snoof.widget.") &&
-                    !packageInfo.packageName.equals("snoof.widget.manager")) {
+        // Query the system for apps matching this intent
+        List<ResolveInfo> resolveInfos = pm.queryIntentActivities(queryIntent, 0);
 
-                String label = pm.getApplicationLabel(packageInfo).toString();
-                Drawable icon = pm.getApplicationIcon(packageInfo);
-                String pkgName = packageInfo.packageName;
+        for (ResolveInfo info : resolveInfos) {
+            // Get the ApplicationInfo from the activity that matched
+            ApplicationInfo appInfo = info.activityInfo.applicationInfo;
+
+            // Safety check to make sure we don't list the manager itself
+            // (though the manager shouldn't have the IDENTIFIER intent filter anyway)
+            if (!appInfo.packageName.equals(getPackageName())) {
+                String label = pm.getApplicationLabel(appInfo).toString();
+                Drawable icon = pm.getApplicationIcon(appInfo);
+                String pkgName = appInfo.packageName;
 
                 discoveredWidgets.add(new WidgetApp(label, pkgName, icon));
-                Log.d("SnoofManager", "Found widget: " + label);
+                Log.d("SnoofManager", "Found Signature Widget: " + label);
             }
         }
 
-        // Notify the adapter that the data changed so it redraws the list
         if (adapter != null) {
             adapter.notifyDataSetChanged();
         }
 
-        // Toggle visibility of the empty message
         if (discoveredWidgets.isEmpty()) {
             emptyText.setVisibility(View.VISIBLE);
         } else {
@@ -92,7 +93,6 @@ public class MainActivity extends AppCompatActivity {
         }
     }
 
-    // Data model for our list items
     public static class WidgetApp {
         public String name;
         public String packageName;
